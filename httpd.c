@@ -279,7 +279,7 @@ void execute_cgi(int client, const char *path,
             sprintf(length_env, "CONTENT_LENGTH=%d", content_length);
             putenv(length_env);
         }
-        execl(path, NULL);
+        execl(path,query_string ,NULL);
         exit(0);
     } else {    /* parent */
         close(cgi_output[1]);
@@ -432,6 +432,7 @@ int startup(u_short *port)
     int on = 1;
     struct sockaddr_in name;
 
+    // TCP套接字
     httpd = socket(PF_INET, SOCK_STREAM, 0);
     if (httpd == -1)
         error_die("socket");
@@ -439,7 +440,9 @@ int startup(u_short *port)
     name.sin_family = AF_INET;
     name.sin_port = htons(*port);
     name.sin_addr.s_addr = htonl(INADDR_ANY);
-    if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
+    
+    // 允许重用本地地址和端口
+    if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)
     {  
         error_die("setsockopt failed");
     }
@@ -505,7 +508,7 @@ int main(void)
                 &client_name_len);
         if (client_sock == -1)
             error_die("accept");
-        /* accept_request(&client_sock); */
+        //accept_request(&client_sock);
         if (pthread_create(&newthread , NULL, (void *)accept_request, (void *)(intptr_t)client_sock) != 0)
             perror("pthread_create");
     }
