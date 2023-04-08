@@ -442,6 +442,10 @@ int startup(u_short *port)
     name.sin_addr.s_addr = htonl(INADDR_ANY);
     
     // 允许重用本地地址和端口
+    /*
+        成功返回0，失败返回SOCKET_ERROR,可通过WSAGetLastError()获取错误代码
+        参数依次为 标识套接字的描述符 选项定义的层次 待设置的选项 指向存放选项待设置的新值的指针 上一个参数的指针的长度
+    */
     if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)
     {  
         error_die("setsockopt failed");
@@ -451,6 +455,10 @@ int startup(u_short *port)
     if (*port == 0)  /* if dynamically allocating a port */
     {
         socklen_t namelen = sizeof(name);
+        /*
+            成功返回0，失败返回SOCKET_ERROR,可通过WSAGetLastError()获取错误代码
+            参数依次为 标识已绑定套接字的描述符 接收套接字的地址信息的结构体 结构体的长度
+        */
         if (getsockname(httpd, (struct sockaddr *)&name, &namelen) == -1)
             error_die("getsockname");
         *port = ntohs(name.sin_port);
@@ -509,6 +517,11 @@ int main(void)
         if (client_sock == -1)
             error_die("accept");
         //accept_request(&client_sock);
+
+        /*
+            成功返回0，失败返回出错编号
+            参数依次为 指向线程标识符的指针 设置线程属性 线程运行函数的起始地址 运行函数的参数
+        */
         if (pthread_create(&newthread , NULL, (void *)accept_request, (void *)(intptr_t)client_sock) != 0)
             perror("pthread_create");
     }
