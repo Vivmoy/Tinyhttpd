@@ -62,12 +62,33 @@ void accept_request(void *arg)
     char path[512];
     size_t i, j;
     struct stat st;
+    /*
+        struct stat
+        {
+            dev_t     st_dev;     ID of device containing file      文件使用的设备号
+            ino_t     st_ino;     inode number                      索引节点号 
+            mode_t    st_mode;    protection                        文件对应的模式，文件，目录等
+            nlink_t   st_nlink;   number of hard links              文件的硬连接数  
+            uid_t     st_uid;     user ID of owner                  所有者用户识别号
+            gid_t     st_gid;     group ID of owner                 组识别号  
+            dev_t     st_rdev;    device ID (if special file)       设备文件的设备号
+            off_t     st_size;    total size, in bytes              以字节为单位的文件容量   
+            blksize_t st_blksize; blocksize for file system I/O     包含该文件的磁盘块的大小   
+            blkcnt_t  st_blocks;  number of 512B blocks allocated   该文件所占的磁盘块  
+            time_t    st_atime;   time of last access               最后一次访问该文件的时间   
+            time_t    st_mtime;   time of last modification         最后一次修改该文件的时间   
+            time_t    st_ctime;   time of last status change        最后一次改变该文件状态的时间   
+        };
+    */
     int cgi = 0;      /* becomes true if server decides this is a CGI
                        * program */
     char *query_string = NULL;
 
+    // buf中是请求行
     numchars = get_line(client, buf, sizeof(buf));
     i = 0; j = 0;
+
+    // 获取buf中的method
     while (!ISspace(buf[i]) && (i < sizeof(method) - 1))
     {
         method[i] = buf[i];
@@ -76,18 +97,22 @@ void accept_request(void *arg)
     j=i;
     method[i] = '\0';
 
+    // 既不是GET方法也不是POST方法
     if (strcasecmp(method, "GET") && strcasecmp(method, "POST"))
     {
         unimplemented(client);
         return;
     }
 
+    // POST方法
     if (strcasecmp(method, "POST") == 0)
         cgi = 1;
 
     i = 0;
     while (ISspace(buf[j]) && (j < numchars))
         j++;
+
+    // 获取url
     while (!ISspace(buf[j]) && (i < sizeof(url) - 1) && (j < numchars))
     {
         url[i] = buf[j];
@@ -97,6 +122,7 @@ void accept_request(void *arg)
 
     if (strcasecmp(method, "GET") == 0)
     {
+        // 记录带参数的GET方法请求中'?'后的参数
         query_string = url;
         while ((*query_string != '?') && (*query_string != '\0'))
             query_string++;
@@ -108,9 +134,14 @@ void accept_request(void *arg)
         }
     }
 
+    // 将"htdocs"与url拼接，存储到path中
     sprintf(path, "htdocs%s", url);
+
+    // 如果解析到的路径为 / ，默认请求 index.html
     if (path[strlen(path) - 1] == '/')
         strcat(path, "index.html");
+
+    // 通过第一个参数文件名获取文件信息，并保存在第二个参数所指的结构体中
     if (stat(path, &st) == -1) {
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
             numchars = get_line(client, buf, sizeof(buf));
@@ -118,14 +149,19 @@ void accept_request(void *arg)
     }
     else
     {
+        // 文件若存在，则与常量S_IFMT相与，相与后的值可以用来判断文件时什么类型的
         if ((st.st_mode & S_IFMT) == S_IFDIR)
+            // 如果是目录，默认请求 index.html
             strcat(path, "/index.html");
+        // 判断文件是否具有执行权限，不论是属于用户/组/其他这三者类型的都置cgi为1
         if ((st.st_mode & S_IXUSR) ||
                 (st.st_mode & S_IXGRP) ||
                 (st.st_mode & S_IXOTH)    )
             cgi = 1;
+        // 不需要cgi机制，发送文件内容给client
         if (!cgi)
             serve_file(client, path);
+        // 需要就调用cgi
         else
             execute_cgi(client, path, method, query_string);
     }
@@ -311,6 +347,7 @@ void execute_cgi(int client, const char *path,
  *             the size of the buffer
  * Returns: the number of bytes stored (excluding null) */
 /**********************************************************************/
+// 从socket套接字中获取一行，以 \n 为结尾
 int get_line(int sock, char *buf, int size)
 {
     int i = 0;
@@ -323,6 +360,7 @@ int get_line(int sock, char *buf, int size)
         /* DEBUG printf("%02X\n", c); */
         if (n > 0)
         {
+            // 若收到 \r 则继续接受下个字符，因为换行符可能是 \r\n
             if (c == '\r')
             {
                 n = recv(sock, &c, 1, MSG_PEEK);
@@ -330,6 +368,7 @@ int get_line(int sock, char *buf, int size)
                 if ((n > 0) && (c == '\n'))
                     recv(sock, &c, 1, 0);
                 else
+                    // 若 \r 后面不是 \n ，则把当前读取的字符置换为 \n
                     c = '\n';
             }
             buf[i] = c;
@@ -366,6 +405,7 @@ void headers(int client, const char *filename)
 /**********************************************************************/
 /* Give a client a 404 not found status message. */
 /**********************************************************************/
+// 处理找不到请求的文件的情况，返回状态码404
 void not_found(int client)
 {
     char buf[1024];
@@ -473,6 +513,7 @@ int startup(u_short *port)
  * implemented.
  * Parameter: the client socket */
 /**********************************************************************/
+// 表示收到的http请求行中的method不被支持
 void unimplemented(int client)
 {
     char buf[1024];
