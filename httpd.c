@@ -387,6 +387,7 @@ int get_line(int sock, char *buf, int size)
 /* Parameters: the socket to print the headers on
  *             the name of the file */
 /**********************************************************************/
+// 在套接字中写入HTTP响应头部
 void headers(int client, const char *filename)
 {
     char buf[1024];
