@@ -196,6 +196,7 @@ void bad_request(int client)
  * Parameters: the client socket descriptor
  *             FILE pointer for the file to cat */
 /**********************************************************************/
+// 把resource标识符指向的文件内容传送给套接字
 void cat(int client, FILE *resource)
 {
     char buf[1024];
