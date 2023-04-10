@@ -247,6 +247,7 @@ void error_die(const char *sc)
  *             path to the CGI script */
 /**********************************************************************/
 // CGI，通用网关接口，一种用于Web服务器与应用程序之间通信的标准接口。可以让Web服务器调用应用程序来执行特定任务，并将结果返回给Web服务器
+// 父进程负责从客户端读写数据，子进程负责cgi文件处理
 void execute_cgi(int client, const char *path,
         const char *method, const char *query_string)
 {
@@ -294,33 +295,50 @@ void execute_cgi(int client, const char *path,
         fd[0]是管道读取端的fd
         fd[1]是管道写入端的fd
     */
+    // 子进程写管道
     if (pipe(cgi_output) < 0) {
         cannot_execute(client);
         return;
     }
+
+    // 子进程读管道
     if (pipe(cgi_input) < 0) {
         cannot_execute(client);
         return;
     }
 
+    // 创建子进程
     if ( (pid = fork()) < 0 ) {
         cannot_execute(client);
         return;
     }
+
+    // 返回状态码200，表示成功
     sprintf(buf, "HTTP/1.0 200 OK\r\n");
     send(client, buf, strlen(buf), 0);
+
+    // 如果是子进程
     if (pid == 0)  /* child: CGI script */
     {
         char meth_env[255];
         char query_env[255];
         char length_env[255];
 
+        // 将子进程的输入绑定到标准输出
         dup2(cgi_output[1], STDOUT);
+
+        // 将子进程的输入绑定到标准输入
         dup2(cgi_input[0], STDIN);
+
         close(cgi_output[0]);
         close(cgi_input[1]);
+
+        // 通过环境变量传递参数
         sprintf(meth_env, "REQUEST_METHOD=%s", method);
+        
+        // 把字符串加到当前环境变量中
         putenv(meth_env);
+
         if (strcasecmp(method, "GET") == 0) {
             sprintf(query_env, "QUERY_STRING=%s", query_string);
             putenv(query_env);
@@ -329,9 +347,19 @@ void execute_cgi(int client, const char *path,
             sprintf(length_env, "CONTENT_LENGTH=%d", content_length);
             putenv(length_env);
         }
+
+        /*
+            第一个参数代表代码可执行程序的路径
+            后面可以输入多个参数
+            但最后一个参数一定要以NULL结束
+        */ 
         execl(path,query_string ,NULL);
+
         exit(0);
-    } else {    /* parent */
+    }
+
+    //父进程 
+    else {    /* parent */
         close(cgi_output[1]);
         close(cgi_input[0]);
         if (strcasecmp(method, "POST") == 0)
@@ -339,6 +367,8 @@ void execute_cgi(int client, const char *path,
                 recv(client, &c, 1, 0);
                 write(cgi_input[1], &c, 1);
             }
+        
+        // 从cgi子进程读取响应数据并发送给客户端
         while (read(cgi_output[0], &c, 1) > 0)
             send(client, &c, 1, 0);
 
