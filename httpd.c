@@ -173,6 +173,7 @@ void accept_request(void *arg)
 /* Inform the client that a request it has made has a problem.
  * Parameters: client socket */
 /**********************************************************************/
+// 处理执行cgi程序中发生的错误，返回状态码500
 void bad_request(int client)
 {
     char buf[1024];
@@ -244,6 +245,7 @@ void error_die(const char *sc)
  * Parameters: client socket descriptor
  *             path to the CGI script */
 /**********************************************************************/
+// CGI，通用网关接口，一种用于Web服务器与应用程序之间通信的标准接口。可以让Web服务器调用应用程序来执行特定任务，并将结果返回给Web服务器
 void execute_cgi(int client, const char *path,
         const char *method, const char *query_string)
 {
@@ -257,16 +259,22 @@ void execute_cgi(int client, const char *path,
     int numchars = 1;
     int content_length = -1;
 
+    // 保证下面的while顺利进行
     buf[0] = 'A'; buf[1] = '\0';
+
+    // 如果是GET方法，删除头部信息
     if (strcasecmp(method, "GET") == 0)
         while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
             numchars = get_line(client, buf, sizeof(buf));
+    
+    // 如果是POST方法，读取Content-Length字段数据
     else if (strcasecmp(method, "POST") == 0) /*POST*/
     {
         numchars = get_line(client, buf, sizeof(buf));
         while ((numchars > 0) && strcmp("\n", buf))
         {
             buf[15] = '\0';
+            //如果是Content-Length，读取字段后数据并转为int类型
             if (strcasecmp(buf, "Content-Length:") == 0)
                 content_length = atoi(&(buf[16]));
             numchars = get_line(client, buf, sizeof(buf));
