@@ -439,6 +439,7 @@ void not_found(int client)
  *              file descriptor
  *             the name of the file to serve */
 /**********************************************************************/
+// 构建HTTP响应头部并发送客户端要求的文件
 void serve_file(int client, const char *filename)
 {
     FILE *resource = NULL;
