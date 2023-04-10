@@ -173,7 +173,7 @@ void accept_request(void *arg)
 /* Inform the client that a request it has made has a problem.
  * Parameters: client socket */
 /**********************************************************************/
-// 处理执行cgi程序中发生的错误，返回状态码500
+// 处理执行cgi程序中发生的错误，返回状态码400
 void bad_request(int client)
 {
     char buf[1024];
@@ -214,6 +214,7 @@ void cat(int client, FILE *resource)
 /* Inform the client that a CGI script could not be executed.
  * Parameter: the client socket descriptor. */
 /**********************************************************************/
+// 处理执行cgi程序中发生的错误，返回状态码500
 void cannot_execute(int client)
 {
     char buf[1024];
@@ -288,7 +289,11 @@ void execute_cgi(int client, const char *path,
     {
     }
 
-
+    /*
+        返回0表示成功。-1表示失败
+        fd[0]是管道读取端的fd
+        fd[1]是管道写入端的fd
+    */
     if (pipe(cgi_output) < 0) {
         cannot_execute(client);
         return;
